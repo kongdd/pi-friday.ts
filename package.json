@@ -1,0 +1,22 @@
+{
+  "name": "@kongdd/pi-friday",
+  "version": "0.1.0",
+  "description": "Voice playback and VS Code editor context for Pi.",
+  "type": "module",
+  "keywords": ["pi-package"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kongdd/kong-pi-extension.git",
+    "directory": "extensions/Friday"
+  },
+  "files": ["src"],
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": ["./src/index.ts", "./src/pi-vscode-context.ts"]
+  }
+}
