@@ -1,5 +1,8 @@
 # Friday
 
+[![CI](https://github.com/kongdd/pi-friday.ts/actions/workflows/friday-ci.yml/badge.svg?branch=main)](https://github.com/kongdd/pi-friday.ts/actions/workflows/friday-ci.yml)
+[![Codecov](https://codecov.io/gh/kongdd/pi-friday.ts/branch/main/graph/badge.svg)](https://codecov.io/gh/kongdd/pi-friday.ts)
+
 Friday 是 Pi 的语音朗读扩展。
 
 ## 安装
@@ -19,6 +22,18 @@ pi install npm:@kongdd/pi-friday
 - `/friday config`：查看当前语音配置。
 
 远程模式通过 HTTP POST 将音频发送给接收器（默认端口 `17322`）。播放模式默认根据 SSH 环境判断。可在 `~/.pi/Friday.json` 中将 `mode` 设为 `"local"` 或 `"remote"`，然后运行 `/reload`；删除该字段恢复自动判断。
+
+## 构建 Rust 工具
+
+在 Apple Silicon Mac 上，安装 Rust（rustup）、Xcode 命令行工具和 MinGW-w64，并准备 `edge-tts-rust` 源码及同级的 `../auto-play.rs`。运行：
+
+```sh
+brew install mingw-w64
+rustup target add aarch64-apple-darwin x86_64-pc-windows-gnu
+./scripts/build-audio-tools.sh /path/to/edge-tts-rust
+```
+
+两种工具的产物分别在 `dist/audio-tools/darwin-arm64/` 和 `dist/audio-tools/win32-x64/`。产物不随 npm 包发布；使用时将对应平台的文件放入 `PATH`。
 
 ## VS Code 编辑器上下文
 
