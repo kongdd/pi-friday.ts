@@ -2,8 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { playerArgs } from "../src/lib";
-import { findPlayer } from "../src/tts";
+import { findPlayer, playerArgs } from "../src/audio-player";
 
 test.each([
   ["win32", ["ffplay.exe", "audio-play.exe"], "audio-play.exe", "audio-play"],

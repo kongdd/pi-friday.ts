@@ -1,12 +1,20 @@
-import { constants } from "node:fs";
-import { access, copyFile, mkdir, readFile, rm, stat } from "node:fs/promises";
+import { copyFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { PLAYERS, VOICES, playerArgs, rateToEdgeTts, spawnQuiet, waitForExit } from "./lib";
-import type { Player, PlayerName, VoiceMode } from "./lib";
+
+export type VoiceMode = "zh" | "en";
+export const VOICES: Record<VoiceMode, string> = {
+  zh: "zh-CN-XiaoxiaoNeural",
+  en: "en-US-AriaNeural",
+};
 
 const EDGE_TTS = "edge-tts-rust";
+
+export function rateToEdgeTts(rate: number): string {
+  const p = Math.round((rate - 1) * 100);
+  return `${p >= 0 ? "+" : ""}${p}%`;
+}
 
 function edgeArgs(text: string, output: string, voice: VoiceMode, rate: number): string[] {
   return [
@@ -17,29 +25,6 @@ function edgeArgs(text: string, output: string, voice: VoiceMode, rate: number):
 
 export async function hasEdgeTts(pi: ExtensionAPI): Promise<boolean> {
   return (await pi.exec(EDGE_TTS, ["--version"], { timeout: 5000 })).code === 0;
-}
-
-export async function findPlayer(platform = process.platform, path = process.env.PATH ?? ""): Promise<Player | undefined> {
-  const windows = platform === "win32";
-  const dirs = path.split(windows ? ";" : ":")
-    .map((dir) => windows ? dir.replace(/^"(.*)"$/, "$1") : dir)
-    .filter(Boolean);
-  const players: PlayerName[] = ["audio-play"];
-  if (platform === "darwin") players.push("afplay");
-  players.push(...PLAYERS);
-
-  for (const name of players) {
-    for (const dir of dirs) {
-      const command = resolve(dir, windows ? `${name}.exe` : name);
-      try {
-        if (!(await stat(command)).isFile()) continue;
-        if (!windows) await access(command, constants.X_OK);
-        return { name, command };
-      } catch {
-        // 跳过不存在或不可执行的候选文件。
-      }
-    }
-  }
 }
 
 export async function synthMp3(pi: ExtensionAPI, text: string, voice: VoiceMode, rate: number, tag: string): Promise<string | undefined> {
@@ -71,15 +56,4 @@ export async function synthSavedMp3(
   } finally {
     await rm(path, { force: true }).catch(() => {});
   }
-}
-
-export async function playMp3File(player: Player, path: string, onSpawn?: (p: import("node:child_process").ChildProcess) => void): Promise<void> {
-  const proc = spawnQuiet(player.command, playerArgs(player.name, path));
-  onSpawn?.(proc);
-  await waitForExit(proc);
-  await rm(path, { force: true }).catch(() => {});
-}
-
-export async function mp3Base64(path: string): Promise<string> {
-  return (await readFile(path)).toString("base64");
 }

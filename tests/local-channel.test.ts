@@ -3,8 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createLocalChannel, type LocalSpeechPhase } from "../src/channels";
-import type { StatusCtx } from "../src/lib";
+import { createLocalChannel, type LocalSpeechPhase, type StatusCtx } from "../src/playback";
 
 test.skipIf(process.platform === "win32")("stopping a drain prevents stale UI access and discards its queue", async () => {
   const dir = await mkdtemp(join(tmpdir(), "friday-channel-"));

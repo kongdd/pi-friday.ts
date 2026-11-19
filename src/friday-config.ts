@@ -40,6 +40,18 @@ export async function saveFridayConfig(
   await writeFile(path, `${JSON.stringify({ ...readConfig(path), ...config }, null, 2)}\n`, "utf8");
 }
 
+export function isRemoteEnv(mode?: FridayConfig["mode"]): boolean {
+  // 持久化配置优先，避免继承的 SSH 环境变量触发远程播放。
+  if (mode) return mode === "remote";
+  // 环境变量仍可在未配置模式时显式指定本地播放。
+  if (process.env.FRIDAY_REMOTE === "0") return false;
+  return Boolean(
+    process.env.FRIDAY_REMOTE === "1"
+    || process.env.SSH_CONNECTION
+    || (process.env.VSCODE_IPC_HOOK_CLI && process.env.WSL_DISTRO_NAME),
+  );
+}
+
 const safeName = (text: string) => text.replace(/[^\p{L}\p{N}._-]+/gu, "_") || "unknown";
 const pad = (value: number, width = 2) => String(value).padStart(width, "0");
 

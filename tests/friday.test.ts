@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
-import { loadFridayConfig, saveFridayConfig } from "../src/config";
-import friday from "../src/index";
+import { loadFridayConfig, saveFridayConfig } from "../src/friday-config";
+import friday from "../src/friday";
 
 let root: string;
 let cwd: string;

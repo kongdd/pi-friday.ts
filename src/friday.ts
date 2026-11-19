@@ -5,10 +5,16 @@
 
 import { dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { loadFridayConfig, savedAudioPath, saveFridayConfig, type FridayScope } from "./config";
-import { FRIDAY_CMDS, VOICES, isRemoteEnv, rateToEdgeTts } from "./lib";
+import { VOICES, rateToEdgeTts } from "./edge-tts";
+import { isRemoteEnv, loadFridayConfig, savedAudioPath, saveFridayConfig, type FridayScope } from "./friday-config";
 import { createSpeechEngine } from "./speech-engine";
-import { extractAssistantText, summarizeForSpeech } from "./text";
+import { extractAssistantText, summarizeForSpeech } from "./speech-text";
+
+const FRIDAY_CMDS = [
+  "on", "on global", "on local", "off", "off global", "off local",
+  "zh", "en", "speed", "test",
+  "config --save-audio=yes", "config --save-audio=no",
+] as const;
 
 export default function friday(pi: ExtensionAPI): void {
   const config = loadFridayConfig();

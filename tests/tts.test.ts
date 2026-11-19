@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import { rm, writeFile } from "node:fs/promises";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { VOICES } from "../src/lib";
-import { synthMp3 } from "../src/tts";
+import { VOICES, synthMp3 } from "../src/edge-tts";
 
 test("使用 Rust CLI 合成 MP3，并传递负语速", async () => {
   const pi = {

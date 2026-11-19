@@ -1,0 +1,35 @@
+name: Friday CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Run Friday tests with coverage
+        run: bun test ./tests --coverage --coverage-reporter=text --coverage-reporter=lcov --coverage-dir="$RUNNER_TEMP/friday-coverage"
+
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: codecov/codecov-action@v7
+        with:
+          use_oidc: true
+          files: ${{ runner.temp }}/friday-coverage/lcov.info
+          disable_search: true
+          fail_ci_if_error: true

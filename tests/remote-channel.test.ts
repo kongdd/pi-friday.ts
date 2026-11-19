@@ -2,7 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { createRemoteChannel } from "../src/channels";
+import { createRemoteChannel } from "../src/playback";
 
 test("远程播放通过 POST 发送音频并清理临时文件", async () => {
   const fetchMock = spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));

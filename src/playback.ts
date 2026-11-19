@@ -1,15 +1,26 @@
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import {
-  BROWSER_SPEECH_WIDGET,
-  DEFAULT_LOCAL_RECEIVER_URL,
-  stopProc,
-  type Player,
-  type SpeakCommand,
-  type StatusCtx,
-  type VoiceMode,
-} from "./lib";
-import { archiveMp3, findPlayer, mp3Base64, playMp3File, synthMp3 } from "./tts";
+import { findPlayer, playMp3File, stopProc, type Player } from "./audio-player";
+import { archiveMp3, synthMp3, type VoiceMode } from "./edge-tts";
+
+export type StatusCtx = {
+  hasUI: boolean;
+  ui: {
+    setStatus(key: string, text: string | undefined): void;
+    notify(message: string, level: "info" | "warning" | "error"): void;
+    setWidget?(key: string, lines: string[] | undefined): void;
+  };
+};
+
+type SpeakCommand = {
+  action: "speak" | "stop";
+  text?: string;
+  lang?: string;
+  rate?: number;
+};
+
+const BROWSER_SPEECH_WIDGET = "friday-speech";
+const DEFAULT_LOCAL_RECEIVER_URL = "http://127.0.0.1:17322/speak";
 
 async function saveAudioCopy(
   path: string,
@@ -116,7 +127,7 @@ export function createRemoteChannel(deps: {
     try {
       await saveAudioCopy(path, saveTo, ctx);
       if (deps.disableReceiver) return false;
-      const data = await mp3Base64(path);
+      const data = (await readFile(path)).toString("base64");
       const payload = JSON.stringify({ type: "mp3", data, rate: deps.rate() });
       return await postReceiver(deps.receiverUrl ?? DEFAULT_LOCAL_RECEIVER_URL, payload);
     } finally {

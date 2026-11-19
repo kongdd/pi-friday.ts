@@ -1,8 +1,10 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { createLocalChannel, createRemoteChannel, createRpcChannel, type LocalSpeechPhase } from "./channels";
-import { projectName, savedAudioPath } from "./config";
-import { STATUS_KEY, langFor, type StatusCtx, type VoiceMode } from "./lib";
-import { hasEdgeTts, synthSavedMp3 } from "./tts";
+import { hasEdgeTts, synthSavedMp3, type VoiceMode } from "./edge-tts";
+import { projectName, savedAudioPath } from "./friday-config";
+import { createLocalChannel, createRemoteChannel, createRpcChannel, type LocalSpeechPhase, type StatusCtx } from "./playback";
+
+const STATUS_KEY = "friday";
+const langFor = (voice: VoiceMode) => (voice === "zh" ? "zh-CN" : "en-US");
 
 export function createSpeechEngine(
   pi: ExtensionAPI,
