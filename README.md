@@ -18,8 +18,10 @@ pi install npm:@kongdd/pi-friday
 - `/friday zh`、`/friday en`：切换中文或英文音色。
 - `/friday config`：查看当前语音配置。
 
-播放模式默认根据 SSH 环境判断。可在 `~/.pi/Friday.json` 中将 `mode` 设为 `"local"` 或 `"remote"`，然后运行 `/reload`；删除该字段恢复自动判断。
+远程模式通过 HTTP POST 将音频发送给接收器（默认端口 `17322`）。播放模式默认根据 SSH 环境判断。可在 `~/.pi/Friday.json` 中将 `mode` 设为 `"local"` 或 `"remote"`，然后运行 `/reload`；删除该字段恢复自动判断。
 
 ## VS Code 编辑器上下文
 
-在 VS Code 中另行安装「Pi Agent Context」，然后在其集成终端运行 Pi。用 `/vscode` 查看编辑器上下文；连接后默认将活动文件与选区附加到发送给模型的消息，可用 `/vscode-auto off` 关闭。
+在 VS Code 中安装 [VSCode Pi Agent Bridge](https://marketplace.visualstudio.com/items?itemName=zenyui.vscode-pi-bridge)（`zenyui.vscode-pi-bridge`）。由于本包已包含 Pi 端扩展，请在 VS Code 设置中关闭 `piContext.autoInstallCompanion`，并移走已自动生成的 `~/.pi/agent/extensions/pi-vscode-context.ts`（若存在），避免重复加载。
+
+在 VS Code 集成终端运行 Pi，用 `/vscode` 查看编辑器上下文。连接后默认将活动文件与选区附加到发送给模型的消息，可用 `/vscode-auto off` 关闭。

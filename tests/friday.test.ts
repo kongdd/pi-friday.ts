@@ -8,7 +8,7 @@ import friday from "../src/index";
 
 let root: string;
 let cwd: string;
-const envKeys = ["PI_CONFIG_DIR", "FRIDAY_REMOTE", "FRIDAY_ENABLE_SSE", "PATH"] as const;
+const envKeys = ["PI_CONFIG_DIR", "FRIDAY_REMOTE", "PATH"] as const;
 let previousEnv: Array<string | undefined>;
 
 beforeEach(() => {
@@ -18,7 +18,6 @@ beforeEach(() => {
   previousEnv = envKeys.map((key) => process.env[key]);
   process.env.PI_CONFIG_DIR = join(root, "config");
   process.env.FRIDAY_REMOTE = "0";
-  delete process.env.FRIDAY_ENABLE_SSE;
   const bin = join(root, "bin");
   mkdirSync(bin);
   writeFileSync(join(bin, process.platform === "win32" ? "audio-play.exe" : "audio-play"), "", { mode: 0o755 });
@@ -36,19 +35,21 @@ afterEach(() => {
 const globalPath = () => join(process.env.PI_CONFIG_DIR!, "Friday.json");
 const localPath = () => join(cwd, ".pi", "Friday.json");
 
-function runtime(execCode = 0) {
+function runtime(execCode = 0, mode: "tui" | "rpc" = "tui") {
   let command!: Parameters<ExtensionAPI["registerCommand"]>[1];
   const handlers = new Map<string, (event: unknown, ctx: ExtensionCommandContext) => unknown>();
   const messages: string[] = [];
   const executions: string[] = [];
+  const widgets: string[][] = [];
   let status: string | undefined;
   const ctx = {
     cwd,
-    mode: "tui",
+    mode,
     hasUI: true,
     ui: {
       notify: (message: string) => messages.push(message),
       setStatus: (_key: string, text: string | undefined) => { status = text; },
+      setWidget: (_key: string, lines: string[]) => { widgets.push(lines); },
     },
   } as unknown as ExtensionCommandContext;
   friday({
@@ -62,8 +63,10 @@ function runtime(execCode = 0) {
   return {
     run: (args: string) => command.handler(args, ctx),
     start: () => handlers.get("session_start")!({}, ctx),
+    shutdown: () => handlers.get("session_shutdown")!({}, ctx),
     complete: (prefix: string) => command.getArgumentCompletions!(prefix),
     get status() { return status; },
+    widgets,
     messages,
     executions,
   };
@@ -143,6 +146,19 @@ test("修改全局时仍尊重项目覆盖", async () => {
   await app.run("on global");
   expect(loadFridayConfig().enabled).toBe(true);
   expect(app.status).toBe("○ Friday off");
+});
+
+test("RPC 关闭与退出均停止浏览器语音", async () => {
+  const app = runtime(0, "rpc");
+  await app.start();
+  await app.run("on");
+  await app.run("off");
+  expect(app.status).toBe("○ Friday off");
+  await app.run("on");
+  await app.shutdown();
+  expect(app.status).toBeUndefined();
+  expect(app.widgets.map(([line]) => JSON.parse(line).action)).toEqual(["stop", "stop"]);
+  expect(app.executions).toEqual([]);
 });
 
 test("远程默认开启可被持久化关闭", async () => {

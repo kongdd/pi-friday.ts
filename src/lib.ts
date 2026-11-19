@@ -7,7 +7,6 @@ export type SpeakCommand = {
   action: "speak" | "stop";
   text?: string;
   lang?: string;
-  audio?: string;
   rate?: number;
 };
 export type StatusCtx = {
@@ -26,8 +25,6 @@ export const VOICES: Record<VoiceMode, string> = {
   en: "en-US-AriaNeural",
 };
 export const PLAYERS = ["ffplay", "mplayer"] as const;
-export const REMOTE_SPEECH_HOST = "127.0.0.1";
-export const REMOTE_SPEECH_PORT = 17321;
 export const DEFAULT_LOCAL_RECEIVER_URL = "http://127.0.0.1:17322/speak";
 export const FRIDAY_CMDS = [
   "on", "on global", "on local", "off", "off global", "off local",
@@ -52,15 +49,6 @@ export function isRemoteEnv(mode?: "local" | "remote"): boolean {
     || process.env.SSH_CONNECTION
     || (process.env.VSCODE_IPC_HOOK_CLI && process.env.WSL_DISTRO_NAME),
   );
-}
-
-export function remoteOnHelp(sseUrl: string, isDefault = false): string {
-  return [
-    `Friday 已${isDefault ? "默认" : ""}开启（远程模式）。`,
-    "",
-    "接收器：本地监听 17322，并通过 SSH RemoteForward 反向转发到远端。",
-    "浏览器：转发远端 17321，打开 " + sseUrl + " 并点「启用语音」。",
-  ].join("\n");
 }
 
 export function waitForExit(proc: ChildProcess): Promise<number | null> {

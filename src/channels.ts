@@ -1,15 +1,8 @@
-import { readFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
-import { createServer, type Server, type ServerResponse } from "node:http";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
   BROWSER_SPEECH_WIDGET,
   DEFAULT_LOCAL_RECEIVER_URL,
-  REMOTE_SPEECH_HOST,
-  REMOTE_SPEECH_PORT,
-  langFor,
   stopProc,
   type Player,
   type SpeakCommand,
@@ -17,8 +10,6 @@ import {
   type VoiceMode,
 } from "./lib";
 import { archiveMp3, findPlayer, mp3Base64, playMp3File, synthMp3 } from "./tts";
-
-const SSE_PAGE = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "remote-speech-page.html"), "utf8");
 
 async function saveAudioCopy(
   path: string,
@@ -96,10 +87,10 @@ export function createLocalChannel(deps: {
 
   const preparePlayer = async () => { player = await findPlayer(); return player; };
 
-  return { stop, enqueue, preparePlayer, get player() { return player; } };
+  return { stop, enqueue, preparePlayer };
 }
 
-// —— Remote：SSE + POST receiver ——
+// —— Remote：POST receiver ——
 export function createRemoteChannel(deps: {
   pi: ExtensionAPI;
   voice: () => VoiceMode;
@@ -107,53 +98,6 @@ export function createRemoteChannel(deps: {
   receiverUrl?: string;
   disableReceiver: boolean;
 }) {
-  let server: Server | undefined;
-  const clients = new Set<ServerResponse>();
-  let active: ServerResponse | undefined;
-  let cmdId = 0;
-
-  const sseEmit = (command: SpeakCommand) => {
-    active?.write(`data: ${JSON.stringify({ id: ++cmdId, ...command })}\n\n`);
-  };
-
-  const start = async (): Promise<string> => {
-    const base = `http://${REMOTE_SPEECH_HOST}:${REMOTE_SPEECH_PORT}`;
-    if (server) return base;
-    server = createServer((req, res) => {
-      if (req.url === "/events") {
-        res.writeHead(200, { "Cache-Control": "no-cache", "Content-Type": "text/event-stream", Connection: "keep-alive" });
-        res.write(": connected\n\n");
-        clients.add(res);
-        active = res;
-        req.on("close", () => {
-          clients.delete(res);
-          if (active === res) active = [...clients].at(-1);
-        });
-        return;
-      }
-      if (req.url === "/" || req.url === "/index.html") {
-        res.writeHead(200, { "Cache-Control": "no-store", "Content-Type": "text/html; charset=utf-8" });
-        res.end(SSE_PAGE);
-        return;
-      }
-      res.writeHead(404);
-      res.end("Not found");
-    });
-    await new Promise<void>((resolve, reject) => {
-      server!.once("error", reject);
-      server!.listen(REMOTE_SPEECH_PORT, REMOTE_SPEECH_HOST, () => { server!.off("error", reject); resolve(); });
-    });
-    return base;
-  };
-
-  const stop = () => {
-    for (const c of clients) c.end();
-    clients.clear();
-    active = undefined;
-    server?.close();
-    server = undefined;
-  };
-
   const postReceiver = async (url: string, body: string) => {
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 8000);
@@ -166,35 +110,21 @@ export function createRemoteChannel(deps: {
     text: string,
     ctx: StatusCtx,
     saveTo?: string,
-  ): Promise<"receiver" | "sse" | "none"> => {
+  ): Promise<boolean> => {
     const path = await synthMp3(deps.pi, text, deps.voice(), deps.rate(), "remote");
-    if (!path) {
-      if (!active) return "none";
-      sseEmit({ action: "speak", text, lang: langFor(deps.voice()), rate: deps.rate() });
-      return "sse";
-    }
+    if (!path) return false;
     try {
       await saveAudioCopy(path, saveTo, ctx);
-      const base64 = await mp3Base64(path);
-      const payload = JSON.stringify({ type: "mp3", data: base64, rate: deps.rate() });
-      if (!deps.disableReceiver) {
-        const url = deps.receiverUrl ?? DEFAULT_LOCAL_RECEIVER_URL;
-        if (await postReceiver(url, payload)) return "receiver";
-      }
-      if (!active) return "none";
-      sseEmit({ action: "speak", audio: `data:audio/mpeg;base64,${base64}`, rate: deps.rate() });
-      return "sse";
+      if (deps.disableReceiver) return false;
+      const data = await mp3Base64(path);
+      const payload = JSON.stringify({ type: "mp3", data, rate: deps.rate() });
+      return await postReceiver(deps.receiverUrl ?? DEFAULT_LOCAL_RECEIVER_URL, payload);
     } finally {
       await rm(path, { force: true }).catch(() => {});
     }
   };
 
-  return {
-    start, stop, speak,
-    sseEmit,
-    get clientCount() { return clients.size; },
-    get running() { return !!server; },
-  };
+  return { speak };
 }
 
 // —— RPC widget ——

@@ -1,27 +1,26 @@
 /**
  * Friday — pi 语音助手（/friday on|off [global|local]、zh|en|speed|test|config）
- * 本地：edge-tts-rust + 系统对应的播放器；Remote：POST 17322 或 SSE 17321 降级。
+ * 本地：edge-tts-rust + 系统对应的播放器；远程：POST 17322 接收器。
  */
 
 import { dirname } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadFridayConfig, savedAudioPath, saveFridayConfig, type FridayScope } from "./config";
-import { FRIDAY_CMDS, STATUS_KEY, VOICES, isRemoteEnv, rateToEdgeTts } from "./lib";
+import { FRIDAY_CMDS, VOICES, isRemoteEnv, rateToEdgeTts } from "./lib";
 import { createSpeechEngine } from "./speech-engine";
 import { extractAssistantText, summarizeForSpeech } from "./text";
 
 export default function friday(pi: ExtensionAPI): void {
   const config = loadFridayConfig();
   const isRemote = isRemoteEnv(config.mode);
-  const enableRemoteSse = process.env.FRIDAY_ENABLE_SSE === "1";
   const engine = createSpeechEngine(pi, {
     isRemote,
-    enableRemoteSse,
     saveAudio: config.saveAudio,
     localReceiverUrl: process.env.FRIDAY_RECEIVER_URL,
     disableLocalReceiver: process.env.FRIDAY_DISABLE_LOCAL_RECEIVER === "1",
   });
 
+  const { state } = engine;
   let lastAssistantText = "";
 
   pi.on("agent_start", () => { lastAssistantText = ""; });
@@ -31,7 +30,7 @@ export default function friday(pi: ExtensionAPI): void {
   });
 
   pi.on("agent_settled", async (_event, ctx) => {
-    if (ctx.mode === "json" || ctx.mode === "print" || !engine.enabled || !lastAssistantText) return;
+    if (ctx.mode === "json" || ctx.mode === "print" || !state.enabled || !lastAssistantText) return;
     const summary = summarizeForSpeech(lastAssistantText);
     if (!summary) return;
     await engine.deliverSpeech(summary, ctx);
@@ -49,18 +48,17 @@ export default function friday(pi: ExtensionAPI): void {
 
       if (cmd === "config" || saveAudioArg) {
         if (saveAudioArg) {
-          const previous = engine.saveAudio;
-          engine.saveAudio = saveAudioArg[1] === "yes";
+          const saveAudio = saveAudioArg[1] === "yes";
           try {
-            await saveFridayConfig({ saveAudio: engine.saveAudio });
+            await saveFridayConfig({ saveAudio });
           } catch (error) {
-            engine.saveAudio = previous;
             ctx.ui.notify(`Friday 配置保存失败：${error instanceof Error ? error.message : String(error)}`, "error");
             return;
           }
+          state.saveAudio = saveAudio;
         }
         const folder = dirname(savedAudioPath(ctx.cwd, ctx.sessionManager.getSessionId()));
-        ctx.ui.notify(`Friday save-audio=${engine.saveAudio ? "yes" : "no"}\n${folder}`, "info");
+        ctx.ui.notify(`Friday save-audio=${state.saveAudio ? "yes" : "no"}\n${folder}`, "info");
         return;
       }
       if (cmd.startsWith("config")) {
@@ -81,15 +79,8 @@ export default function friday(pi: ExtensionAPI): void {
           ctx.ui.notify(`Friday 已保存${scope === "global" ? "全局" : "项目"}开关：${enabled ? "on" : "off"}（项目配置优先）。`, "info");
           enabled = loadFridayConfig(ctx.cwd).enabled ?? isRemote;
         }
-        if (enabled) {
-          await engine.turnOn(ctx);
-        } else {
-          engine.enabled = false;
-          engine.stopLocalSpeech();
-          engine.emitStop(ctx);
-          engine.renderStatus(ctx);
-          ctx.ui.notify("Friday 已关闭。", "info");
-        }
+        if (enabled) await engine.turnOn(ctx);
+        else engine.turnOff(ctx);
         return;
       }
       if (/^(on|off)\b/.test(cmd)) {
@@ -97,7 +88,7 @@ export default function friday(pi: ExtensionAPI): void {
         return;
       }
       if (cmd === "zh" || cmd === "en") {
-        engine.voiceMode = cmd;
+        state.voiceMode = cmd;
         engine.renderStatus(ctx);
         ctx.ui.notify(`Friday 已切换为${cmd === "zh" ? "中文" : "英文"}音色。`, "info");
         return;
@@ -105,7 +96,7 @@ export default function friday(pi: ExtensionAPI): void {
       if (cmd.startsWith("speed")) {
         const arg = args.trim().slice(5).trim();
         if (!arg) {
-          ctx.ui.notify(`Friday 语速：${engine.speechRate}×（${rateToEdgeTts(engine.speechRate)}）`, "info");
+          ctx.ui.notify(`Friday 语速：${state.speechRate}×（${rateToEdgeTts(state.speechRate)}）`, "info");
           return;
         }
         const m = arg.match(/^=?\s*(\d+(?:\.\d+)?)\s*x?$/i);
@@ -118,17 +109,17 @@ export default function friday(pi: ExtensionAPI): void {
           ctx.ui.notify(`语速超出范围：${next}`, "error");
           return;
         }
-        engine.speechRate = next;
+        state.speechRate = next;
         engine.renderStatus(ctx);
-        ctx.ui.notify(`Friday 语速 ${engine.speechRate}×（${rateToEdgeTts(engine.speechRate)}）`, "info");
+        ctx.ui.notify(`Friday 语速 ${next}×（${rateToEdgeTts(next)}）`, "info");
         return;
       }
       if (cmd === "test") {
-        if (!engine.enabled) {
+        if (!state.enabled) {
           await engine.turnOn(ctx);
-          if (!engine.enabled) return;
+          if (!state.enabled) return;
         }
-        const text = engine.voiceMode === "zh"
+        const text = state.voiceMode === "zh"
           ? "你好，我是 Friday，语音连接正常。"
           : "Hello, this is Friday. Speech is working.";
         const delivered = await engine.deliverSpeech(text, ctx);
@@ -142,7 +133,7 @@ export default function friday(pi: ExtensionAPI): void {
       const mode = isRemote ? "SSH/远程"
         : ctx.mode === "rpc" ? "RPC 浏览器" : "本地 edge-tts-rust";
       ctx.ui.notify(
-        `Friday\n  状态：${engine.enabled ? "开" : "关"}\n  音色：${VOICES[engine.voiceMode]}\n  语速：${engine.speechRate}×\n  保存音频：${engine.saveAudio ? "是" : "否"}\n  模式：${mode}${enableRemoteSse ? `\n  SSE 连接：${engine.remoteClientCount}` : ""}`,
+        `Friday\n  状态：${state.enabled ? "开" : "关"}\n  音色：${VOICES[state.voiceMode]}\n  语速：${state.speechRate}×\n  保存音频：${state.saveAudio ? "是" : "否"}\n  模式：${mode}`,
         "info",
       );
     },
@@ -151,15 +142,10 @@ export default function friday(pi: ExtensionAPI): void {
   pi.on("session_start", async (_event, ctx) => {
     if (ctx.mode === "json" || ctx.mode === "print") return;
     const enabled = loadFridayConfig(ctx.cwd).enabled ?? isRemote;
-    engine.enabled = false;
+    state.enabled = false;
     engine.renderStatus(ctx);
     if (enabled) await engine.turnOn(ctx);
   });
 
-  pi.on("session_shutdown", (_event, ctx) => {
-    engine.stopLocalSpeech();
-    engine.emitStop(ctx);
-    engine.stopRemoteSpeechServer();
-    ctx.ui.setStatus(STATUS_KEY, undefined);
-  });
+  pi.on("session_shutdown", (_event, ctx) => engine.shutdown(ctx));
 }

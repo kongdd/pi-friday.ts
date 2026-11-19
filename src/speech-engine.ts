@@ -1,32 +1,26 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { createLocalChannel, createRemoteChannel, createRpcChannel, type LocalSpeechPhase } from "./channels";
 import { projectName, savedAudioPath } from "./config";
-import { STATUS_KEY, langFor, remoteOnHelp, type StatusCtx, type VoiceMode } from "./lib";
+import { STATUS_KEY, langFor, type StatusCtx, type VoiceMode } from "./lib";
 import { hasEdgeTts, synthSavedMp3 } from "./tts";
-
-export type SpeechEngine = ReturnType<typeof createSpeechEngine>;
 
 export function createSpeechEngine(
   pi: ExtensionAPI,
   opts: {
     isRemote: boolean;
-    enableRemoteSse: boolean;
     saveAudio: boolean;
     localReceiverUrl?: string;
     disableLocalReceiver: boolean;
   },
 ) {
-  let enabled = opts.isRemote;
-  let voiceMode: VoiceMode = "zh";
-  let speechRate = 1.0;
-  let saveAudio = opts.saveAudio;
+  const state = { enabled: opts.isRemote, voiceMode: "zh" as VoiceMode, speechRate: 1, saveAudio: opts.saveAudio };
   let phase: LocalSpeechPhase = "idle";
   let warnedDisconnected = false;
 
   const remote = createRemoteChannel({
     pi,
-    voice: () => voiceMode,
-    rate: () => speechRate,
+    voice: () => state.voiceMode,
+    rate: () => state.speechRate,
     receiverUrl: opts.localReceiverUrl,
     disableReceiver: opts.disableLocalReceiver,
   });
@@ -34,9 +28,9 @@ export function createSpeechEngine(
 
   const renderStatus = (ctx: StatusCtx) => {
     if (!ctx.hasUI) return;
-    if (!enabled) { ctx.ui.setStatus(STATUS_KEY, "○ Friday off"); return; }
-    const speed = speechRate === 1 ? "" : ` ${speechRate}×`;
-    const status = phase === "idle" ? `● Friday ${voiceMode}`
+    if (!state.enabled) { ctx.ui.setStatus(STATUS_KEY, "○ Friday off"); return; }
+    const speed = state.speechRate === 1 ? "" : ` ${state.speechRate}×`;
+    const status = phase === "idle" ? `● Friday ${state.voiceMode}`
       : phase === "synthesizing" ? "◉ Friday to audio"
       : "◉ Friday speaking...";
     ctx.ui.setStatus(STATUS_KEY, `${status}${speed}`);
@@ -44,18 +38,17 @@ export function createSpeechEngine(
 
   const local = createLocalChannel({
     pi,
-    isEnabled: () => enabled,
-    voice: () => voiceMode,
-    rate: () => speechRate,
+    isEnabled: () => state.enabled,
+    voice: () => state.voiceMode,
+    rate: () => state.speechRate,
     onPhase: (next, ctx) => {
       phase = next;
       if (ctx) renderStatus(ctx);
     },
   });
 
-  const makeSpeak = (text: string) => ({ action: "speak" as const, text, lang: langFor(voiceMode), rate: speechRate });
-
   const deliverSpeech = async (text: string, ctx: ExtensionContext): Promise<boolean> => {
+    const { voiceMode, speechRate, saveAudio } = state;
     const project = projectName(ctx.cwd);
     const spokenText = voiceMode === "zh"
       ? `Project ${project}。${text}`
@@ -64,16 +57,12 @@ export function createSpeechEngine(
       ? savedAudioPath(ctx.cwd, ctx.sessionManager.getSessionId())
       : undefined;
     if (opts.isRemote) {
-      const channel = await remote.speak(spokenText, ctx, saveTo);
-      if (channel === "none") {
-        if (!warnedDisconnected) {
-          ctx.ui.notify("Friday 无可用播放器：17322 接收器不可达，且 17321 浏览器未连接。", "warning");
-          warnedDisconnected = true;
-        }
-        return false;
+      const delivered = await remote.speak(spokenText, ctx, saveTo);
+      if (!delivered && !warnedDisconnected) {
+        ctx.ui.notify("Friday 远程播放失败：未能将音频发送给接收器。", "warning");
       }
-      warnedDisconnected = false;
-      return true;
+      warnedDisconnected = !delivered;
+      return delivered;
     }
     if (ctx.mode === "rpc") {
       if (saveTo) {
@@ -85,51 +74,30 @@ export function createSpeechEngine(
           ctx.ui.notify(`Friday 音频保存失败：${error instanceof Error ? error.message : String(error)}`, "warning");
         }
       }
-      rpc.emit(ctx, makeSpeak(spokenText));
+      rpc.emit(ctx, { action: "speak", text: spokenText, lang: langFor(state.voiceMode), rate: state.speechRate });
       return true;
     }
     local.enqueue(spokenText, ctx, saveTo);
     return true;
   };
 
-  const emitStop = (ctx: StatusCtx & { mode?: string }) => {
+  const stopSpeech = (ctx: ExtensionContext) => {
+    local.stop();
     if (ctx.mode === "rpc") rpc.emit(ctx, { action: "stop" });
-    if (opts.isRemote) remote.sseEmit({ action: "stop" });
   };
 
-  const ensureRemoteReady = async (ctx: StatusCtx) => {
-    if (!await hasEdgeTts(pi)) {
-      ctx.ui.notify("Friday 无法开启：未找到 edge-tts-rust。", "error");
-      return undefined;
-    }
-    try { return await remote.start(); }
-    catch (e) {
-      ctx.ui.notify(`Friday 无法启动语音页面：${e instanceof Error ? e.message : String(e)}`, "error");
-      return undefined;
-    }
-  };
-
-  const turnOn = async (ctx: StatusCtx & { mode?: string }) => {
+  const turnOn = async (ctx: ExtensionContext) => {
     warnedDisconnected = false;
+    let message: string;
     if (opts.isRemote) {
-      if (opts.enableRemoteSse) {
-        const url = await ensureRemoteReady(ctx);
-        if (!url) return;
-        enabled = true;
-        renderStatus(ctx);
-        ctx.ui.notify(remoteOnHelp(url), "info");
-        return;
-      }
       if (!await hasEdgeTts(pi)) {
         ctx.ui.notify("Friday 无法开启：未找到 edge-tts-rust。", "error");
         return;
       }
-      enabled = true;
-      renderStatus(ctx);
-      ctx.ui.notify("Friday 已开启：远程 17322 接收器。", "info");
-      return;
-    }
-    if (ctx.mode !== "rpc") {
+      message = "Friday 已开启：远程 17322 接收器。";
+    } else if (ctx.mode === "rpc") {
+      message = "Friday 已开启：RPC 浏览器语音。";
+    } else {
       const [ok, p] = await Promise.all([hasEdgeTts(pi), local.preparePlayer()]);
       if (!ok || !p) {
         const missingPlayer = process.platform === "win32"
@@ -138,29 +106,27 @@ export function createSpeechEngine(
         ctx.ui.notify(`Friday 无法开启：${[!ok && "未找到 edge-tts-rust", !p && missingPlayer].filter(Boolean).join("；")}`, "error");
         return;
       }
+      message = `Friday 已开启：本地播放器 ${p.name}。`;
     }
-    enabled = true;
+    state.enabled = true;
     renderStatus(ctx);
-    ctx.ui.notify(ctx.mode === "rpc" ? "Friday 已开启：RPC 浏览器语音。" : `Friday 已开启：本地播放器 ${local.player?.name}。`, "info");
+    ctx.ui.notify(message, "info");
   };
 
   return {
-    get enabled() { return enabled; },
-    set enabled(v: boolean) { enabled = v; },
-    get voiceMode() { return voiceMode; },
-    set voiceMode(v: VoiceMode) { voiceMode = v; },
-    get speechRate() { return speechRate; },
-    set speechRate(v: number) { speechRate = v; },
-    get saveAudio() { return saveAudio; },
-    set saveAudio(v: boolean) { saveAudio = v; },
-    get remoteClientCount() { return remote.clientCount; },
-    get hasRemoteServer() { return remote.running; },
+    state,
     renderStatus,
-    stopLocalSpeech: () => local.stop(),
-    stopRemoteSpeechServer: () => remote.stop(),
     deliverSpeech,
-    emitStop,
-    ensureRemoteReady,
     turnOn,
+    turnOff(ctx: ExtensionContext) {
+      state.enabled = false;
+      stopSpeech(ctx);
+      renderStatus(ctx);
+      ctx.ui.notify("Friday 已关闭。", "info");
+    },
+    shutdown(ctx: ExtensionContext) {
+      stopSpeech(ctx);
+      ctx.ui.setStatus(STATUS_KEY, undefined);
+    },
   };
 }
