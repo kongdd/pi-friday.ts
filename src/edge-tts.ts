@@ -2,6 +2,7 @@ import { copyFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { findBundledTool } from "./audio-tools";
 
 export type VoiceMode = "zh" | "en";
 export const VOICES: Record<VoiceMode, string> = {
@@ -9,7 +10,7 @@ export const VOICES: Record<VoiceMode, string> = {
   en: "en-US-AriaNeural",
 };
 
-const EDGE_TTS = "edge-tts-rust";
+const edgeTtsCommand = async () => (await findBundledTool("edge-tts-rust")) ?? "edge-tts-rust";
 
 export function rateToEdgeTts(rate: number): string {
   const p = Math.round((rate - 1) * 100);
@@ -24,12 +25,12 @@ function edgeArgs(text: string, output: string, voice: VoiceMode, rate: number):
 }
 
 export async function hasEdgeTts(pi: ExtensionAPI): Promise<boolean> {
-  return (await pi.exec(EDGE_TTS, ["--version"], { timeout: 5000 })).code === 0;
+  return (await pi.exec(await edgeTtsCommand(), ["--version"], { timeout: 5000 })).code === 0;
 }
 
 export async function synthMp3(pi: ExtensionAPI, text: string, voice: VoiceMode, rate: number, tag: string): Promise<string | undefined> {
   const output = join(tmpdir(), `friday-${tag}-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
-  if ((await pi.exec(EDGE_TTS, edgeArgs(text, output, voice, rate), { timeout: 60000 })).code !== 0) {
+  if ((await pi.exec(await edgeTtsCommand(), edgeArgs(text, output, voice, rate), { timeout: 60000 })).code !== 0) {
     await rm(output, { force: true }).catch(() => {});
     return undefined;
   }

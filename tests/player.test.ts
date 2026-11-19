@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findPlayer, playerArgs } from "../src/audio-player";
+import { findBundledTool } from "../src/audio-tools";
 
 test.each([
   ["win32", ["ffplay.exe", "audio-play.exe"], "audio-play.exe", "audio-play"],
@@ -18,10 +19,34 @@ test.each([
     for (const file of files) await writeFile(join(bin, file), "", { mode: 0o755 });
 
     const path = platform === "win32" ? `${root};"${bin}"` : `${root}:${bin}`;
-    expect(await findPlayer(platform, path)).toEqual({ name, command: join(bin, exe) });
-    expect(await findPlayer(platform, root)).toBeUndefined();
+    const location = { platform, arch: platform === "darwin" ? "arm64" : "x64", toolsDir: root } as const;
+    expect(await findPlayer({ ...location, path })).toEqual({ name, command: join(bin, exe) });
+    expect(await findPlayer({ ...location, path: root })).toBeUndefined();
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test.each([
+  ["darwin", "arm64", ""],
+  ["win32", "x64", ".exe"],
+] as const)("uses bundled tools on %s-%s", async (platform, arch, suffix) => {
+  const toolsDir = await mkdtemp(join(tmpdir(), "friday-tools-"));
+  try {
+    const bin = join(toolsDir, `${platform}-${arch}`);
+    await mkdir(bin);
+    const player = join(bin, `audio-play${suffix}`);
+    const tts = join(bin, `edge-tts-rust${suffix}`);
+    for (const file of [player, tts, join(toolsDir, `audio-play${suffix}`)]) {
+      await writeFile(file, "", { mode: 0o755 });
+    }
+
+    const location = { platform, arch, toolsDir };
+    expect(await findPlayer({ ...location, path: toolsDir })).toEqual({ name: "audio-play", command: player });
+    expect(await findBundledTool("edge-tts-rust", location)).toBe(tts);
+    expect(await findBundledTool("edge-tts-rust", { ...location, arch: "ia32" })).toBeUndefined();
+  } finally {
+    await rm(toolsDir, { recursive: true, force: true });
   }
 });
 

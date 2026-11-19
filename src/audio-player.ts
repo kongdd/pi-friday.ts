@@ -1,13 +1,18 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { constants } from "node:fs";
-import { access, rm, stat } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
+import { findBundledTool, isExecutable, type AudioToolLocation } from "./audio-tools";
 
 const PLAYERS = ["ffplay", "mplayer"] as const;
 type PlayerName = "afplay" | "audio-play" | (typeof PLAYERS)[number];
 export type Player = { name: PlayerName; command: string };
 
-export async function findPlayer(platform = process.platform, path = process.env.PATH ?? ""): Promise<Player | undefined> {
+export async function findPlayer(
+  { platform = process.platform, path = process.env.PATH ?? "", ...location }: AudioToolLocation & { path?: string } = {},
+): Promise<Player | undefined> {
+  const bundled = await findBundledTool("audio-play", { platform, ...location });
+  if (bundled) return { name: "audio-play", command: bundled };
+
   const windows = platform === "win32";
   const dirs = path.split(windows ? ";" : ":")
     .map((dir) => windows ? dir.replace(/^"(.*)"$/, "$1") : dir)
@@ -19,13 +24,8 @@ export async function findPlayer(platform = process.platform, path = process.env
   for (const name of players) {
     for (const dir of dirs) {
       const command = resolve(dir, windows ? `${name}.exe` : name);
-      try {
-        if (!(await stat(command)).isFile()) continue;
-        if (!windows) await access(command, constants.X_OK);
-        return { name, command };
-      } catch {
-        // 跳过不存在或不可执行的候选文件。
-      }
+      // 跳过不存在或不可执行的候选文件。
+      if (await isExecutable(command, platform)) return { name, command };
     }
   }
 }

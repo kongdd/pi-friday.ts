@@ -7,6 +7,7 @@ import { createLocalChannel, type LocalSpeechPhase, type StatusCtx } from "../sr
 
 test.skipIf(process.platform === "win32")("stopping a drain prevents stale UI access and discards its queue", async () => {
   const dir = await mkdtemp(join(tmpdir(), "friday-channel-"));
+  const started = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const synthesized: string[] = [];
   const phases: LocalSpeechPhase[] = [];
@@ -27,6 +28,7 @@ test.skipIf(process.platform === "win32")("stopping a drain prevents stale UI ac
       synthesized.push(text);
       if (text === "--text=old") {
         oldMp3 = output;
+        started.resolve();
         await release.promise;
       }
       await writeFile(output, text);
@@ -46,30 +48,24 @@ test.skipIf(process.platform === "win32")("stopping a drain prevents stale UI ac
 
   let stopped: Promise<void> | undefined;
   try {
-    await writeFile(join(dir, "audio-play"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
-    const path = process.env.PATH;
-    let player: ReturnType<typeof channel.preparePlayer>;
-    try {
-      process.env.PATH = dir;
-      player = channel.preparePlayer();
-    } finally {
-      if (path === undefined) delete process.env.PATH;
-      else process.env.PATH = path;
-    }
-    expect((await player)?.command).toBe(join(dir, "audio-play"));
+    const command = join(dir, "audio-play");
+    await writeFile(command, "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+    await channel.preparePlayer(async () => ({ name: "audio-play", command }));
 
     const oldArchive = join(dir, "old.mp3");
     stopped = channel.enqueue("old", oldCtx, oldArchive);
+    await started.promise;
     channel.enqueue("discard", oldCtx);
     channel.stop(); // also called by session_shutdown before the context becomes stale
     stale = true;
 
     const nextArchive = join(dir, "next.mp3");
     const next = channel.enqueue("next", { hasUI: true, ui }, nextArchive);
-    expect(synthesized).toEqual(["--text=old", "--text=next"]);
     expect(phases).toEqual(["synthesizing", "idle", "synthesizing"]);
     release.resolve();
     await Promise.all([stopped, next]);
+
+    expect(synthesized).toEqual(["--text=old", "--text=next"]);
 
     expect(phases).toEqual(["synthesizing", "idle", "synthesizing", "speaking", "idle"]);
     expect(oldCtxReads).toBe(1);

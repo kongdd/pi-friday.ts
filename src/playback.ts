@@ -96,7 +96,7 @@ export function createLocalChannel(deps: {
     })().catch((error) => { console.error("Friday 本地播放失败：", error); });
   };
 
-  const preparePlayer = async () => { player = await findPlayer(); return player; };
+  const preparePlayer = async (discover = findPlayer) => { player = await discover(); return player; };
 
   return { stop, enqueue, preparePlayer };
 }

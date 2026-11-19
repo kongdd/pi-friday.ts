@@ -13,7 +13,7 @@ pi install npm:@kongdd/pi-friday
 
 重启 Pi 后，运行 `/friday on` 开启朗读，运行 `/friday test` 试听。如果已手动安装过 Friday，请先停用旧副本，避免重复加载。
 
-本地终端播放需要在 `PATH` 中提供 `edge-tts-rust` 和可用的播放器（如 macOS 自带的 `afplay`，或 `ffplay`）。使用 `edge-tts-rust` 合成时，待朗读文本会发送到在线语音服务。
+npm 包内含 macOS ARM64 和 Windows x64 的 `edge-tts-rust` 与 `audio-play`，无需手动安装。找不到包内工具时，Friday 从 `PATH` 查找，播放器也可用 `afplay` 或 `ffplay`。合成时，待朗读文本会发送到在线语音服务。
 
 ## 常用命令
 
@@ -33,7 +33,7 @@ rustup target add aarch64-apple-darwin x86_64-pc-windows-gnu
 ./scripts/build-audio-tools.sh /path/to/edge-tts-rust
 ```
 
-两种工具的产物分别在 `dist/audio-tools/darwin-arm64/` 和 `dist/audio-tools/win32-x64/`。产物不随 npm 包发布；使用时将对应平台的文件放入 `PATH`。
+两种工具的产物分别在 `dist/audio-tools/darwin-arm64/` 和 `dist/audio-tools/win32-x64/`。发布前先构建，再用 `npm pack --dry-run` 确认四个文件都在包里。
 
 ## VS Code 编辑器上下文
 
