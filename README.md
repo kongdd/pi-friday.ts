@@ -34,9 +34,3 @@ rustup target add aarch64-apple-darwin x86_64-pc-windows-gnu
 ```
 
 两种工具的产物分别在 `dist/audio-tools/darwin-arm64/` 和 `dist/audio-tools/win32-x64/`。发布前先构建，再用 `npm pack --dry-run` 确认四个文件都在包里。
-
-## VS Code 编辑器上下文
-
-在 VS Code 中安装 [VSCode Pi Agent Bridge](https://marketplace.visualstudio.com/items?itemName=zenyui.vscode-pi-bridge)（`zenyui.vscode-pi-bridge`）。编辑器上下文不随 Friday 分发，请按桥接扩展的说明安装 Pi 端配套扩展。
-
-在 VS Code 集成终端运行 Pi，用 `/vscode` 查看编辑器上下文。连接后默认将活动文件与选区附加到发送给模型的消息，可用 `/vscode-auto off` 关闭。

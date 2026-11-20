@@ -23,8 +23,7 @@ export AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
 build() {
   local target="$1" platform="$2" suffix="${3:-}"
   local release="$target_dir/$target/release" destination="$output/$platform"
-  CARGO_PROFILE_RELEASE_OPT_LEVEL=s CARGO_PROFILE_RELEASE_LTO=true \
-    "$cargo" build --locked --release --target "$target" --target-dir "$target_dir" \
+  "$cargo" build --locked --release --target "$target" --target-dir "$target_dir" \
     --manifest-path "$edge_manifest" --bin edge-tts-rust
   "$cargo" build --locked --release --target "$target" --target-dir "$target_dir" \
     --manifest-path "$audio_manifest" --bin audio-play

@@ -21,6 +21,7 @@ export async function isExecutable(file: string, platform: NodeJS.Platform): Pro
   }
 }
 
+// find exe
 export async function findBundledTool(
   name: "audio-play" | "edge-tts-rust",
   { platform = process.platform, arch = process.arch, toolsDir = BUNDLED_TOOLS }: AudioToolLocation = {},
