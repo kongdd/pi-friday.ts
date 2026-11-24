@@ -2,7 +2,7 @@ import { copyFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { findBundledTool } from "./audio-tools";
+import { findTool } from "./audio-tools";
 
 export type VoiceMode = "zh" | "en";
 export const VOICES: Record<VoiceMode, string> = {
@@ -10,7 +10,7 @@ export const VOICES: Record<VoiceMode, string> = {
   en: "en-US-AriaNeural",
 };
 
-const edgeTtsCommand = async () => (await findBundledTool("edge-tts-rust")) ?? "edge-tts-rust";
+const edgeTtsCommand = async () => (await findTool("edge-tts-rust")) ?? "edge-tts-rust";
 
 export function rateToEdgeTts(rate: number): string {
   const p = Math.round((rate - 1) * 100);

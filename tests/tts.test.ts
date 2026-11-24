@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { rm, writeFile } from "node:fs/promises";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { findBundledTool } from "../src/audio-tools";
+import { findTool } from "../src/audio-tools";
 import { VOICES, synthMp3 } from "../src/edge-tts";
 
 test("使用 Rust CLI 合成 MP3，并传递负语速", async () => {
   const pi = {
     exec: async (command: string, args: string[]) => {
-      expect(command).toBe((await findBundledTool("edge-tts-rust")) ?? "edge-tts-rust");
+      expect(command).toBe((await findTool("edge-tts-rust")) ?? "edge-tts-rust");
       const output = args[2]!;
       expect(output).toEndWith(".mp3");
       expect(args).toEqual([

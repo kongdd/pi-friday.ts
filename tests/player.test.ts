@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findPlayer, playerArgs } from "../src/audio-player";
-import { findBundledTool } from "../src/audio-tools";
+import { findTool } from "../src/audio-tools";
 
 test.each([
   ["win32", ["ffplay.exe", "audio-play.exe"], "audio-play.exe", "audio-play"],
@@ -43,8 +43,10 @@ test.each([
 
     const location = { platform, arch, toolsDir };
     expect(await findPlayer({ ...location, path: toolsDir })).toEqual({ name: "audio-play", command: player });
-    expect(await findBundledTool("edge-tts-rust", location)).toBe(tts);
-    expect(await findBundledTool("edge-tts-rust", { ...location, arch: "ia32" })).toBeUndefined();
+    expect(await findTool("edge-tts-rust", location)).toBe(tts);
+    // 不支持的架构不看包内目录，改从 PATH 查找同名程序。
+    expect(await findTool("edge-tts-rust", { ...location, arch: "ia32", path: "" })).toBeUndefined();
+    expect(await findTool("edge-tts-rust", { ...location, arch: "ia32", path: bin })).toBe(tts);
   } finally {
     await rm(toolsDir, { recursive: true, force: true });
   }

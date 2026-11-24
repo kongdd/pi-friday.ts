@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { loadFridayConfig, saveFridayConfig } from "../src/friday-config";
-import { findBundledTool } from "../src/audio-tools";
+import { findTool } from "../src/audio-tools";
 import friday from "../src/friday";
 
 let root: string;
@@ -120,7 +120,7 @@ test.each(["global", "local"] as const)("on/off %s 持久化并在新会话恢�
   const reloaded = runtime();
   await reloaded.start();
   expect(reloaded.status).toBe("● Friday zh");
-  expect(reloaded.executions).toEqual([(await findBundledTool("edge-tts-rust")) ?? "edge-tts-rust"]);
+  expect(reloaded.executions).toEqual([(await findTool("edge-tts-rust")) ?? "edge-tts-rust"]);
   await reloaded.run(`off ${scope}`);
   expect(reloaded.status).toBe("○ Friday off");
   const next = runtime();

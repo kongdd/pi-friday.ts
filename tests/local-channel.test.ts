@@ -79,3 +79,35 @@ test.skipIf(process.platform === "win32")("stopping a drain prevents stale UI ac
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test.skipIf(process.platform === "win32")("reports a player failure and removes the temporary audio", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "friday-channel-"));
+  const messages: string[] = [];
+  let mp3 = "";
+  const channel = createLocalChannel({
+    pi: {
+      async exec(_command: string, [, , output]: string[]) {
+        mp3 = output;
+        await writeFile(output, "audio");
+        return { code: 0 };
+      },
+    } as unknown as ExtensionAPI,
+    isEnabled: () => true,
+    voice: () => "zh",
+    rate: () => 1,
+    onPhase() {},
+  });
+  try {
+    const command = join(dir, "audio-play");
+    await writeFile(command, "#!/bin/sh\necho 'no output device' >&2\nexit 1\n", { mode: 0o755 });
+    await channel.preparePlayer(async () => ({ name: "audio-play", command }));
+    await channel.enqueue("test", {
+      hasUI: true,
+      ui: { setStatus() {}, notify: (message) => messages.push(message) },
+    });
+    expect(messages).toEqual(["Friday 本地播放失败：audio-play：no output device"]);
+    expect(await Bun.file(mp3).exists()).toBe(false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

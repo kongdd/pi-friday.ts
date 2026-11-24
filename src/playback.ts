@@ -71,16 +71,20 @@ export function createLocalChannel(deps: {
         while (isCurrent() && deps.isEnabled() && queue.length) {
           const next = queue.shift();
           if (!next || !player) continue;
-          deps.onPhase("synthesizing", ctx);
-          let path = await synthMp3(deps.pi, next.text, deps.voice(), deps.rate(), "local");
-          if (!path) continue;
+          let path: string | undefined;
           try {
+            deps.onPhase("synthesizing", ctx);
+            path = await synthMp3(deps.pi, next.text, deps.voice(), deps.rate(), "local");
             if (!isCurrent()) continue;
+            if (!path) throw new Error("edge-tts-rust 合成失败");
             await saveAudioCopy(path, next.saveTo, ctx, isCurrent);
             if (isCurrent() && deps.isEnabled()) {
               deps.onPhase("speaking", ctx);
               await playMp3File(player, path, (p) => { current = p; });
-              path = undefined;
+            }
+          } catch (error) {
+            if (isCurrent()) {
+              ctx.ui.notify(`Friday 本地播放失败：${error instanceof Error ? error.message : String(error)}`, "error");
             }
           } finally {
             if (path) await rm(path, { force: true }).catch(() => {});
