@@ -1,6 +1,6 @@
 {
-  "name": "@kongdd/pi-friday",
-  "version": "0.1.0",
+  "name": "pi-friday",
+  "version": "0.1.1",
   "description": "Voice playback for Pi.",
   "type": "module",
   "keywords": ["pi-package"],
@@ -9,7 +9,11 @@
     "url": "git+https://github.com/kongdd/kong-pi-extension.git",
     "directory": "extensions/Friday"
   },
-  "files": ["src", "dist/audio-tools"],
+  "files": ["src"],
+  "optionalDependencies": {
+    "pi-friday-darwin-arm64": "0.1.1",
+    "pi-friday-win32-x64": "0.1.1"
+  },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
   },

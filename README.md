@@ -8,12 +8,12 @@ Friday 是 Pi 的语音朗读扩展。
 ## 安装
 
 ```sh
-pi install npm:@kongdd/pi-friday
+pi install npm:pi-friday
 ```
 
 重启 Pi 后，运行 `/friday on` 开启朗读，运行 `/friday test` 试听。如果已手动安装过 Friday，请先停用旧副本，避免重复加载。
 
-npm 包内含 macOS ARM64 和 Windows x64 的 `edge-tts-rust` 与 `audio-play`，无需手动安装。找不到包内工具时，Friday 从 `PATH` 查找，播放器也可用 `afplay` 或 `ffplay`。合成时，待朗读文本会发送到在线语音服务。
+macOS ARM64 和 Windows x64 会自动安装对应的 `edge-tts-rust` 与 `audio-play`。Friday 优先查找本地 `pkgs/pi-friday-<平台>/`，其次查找 npm 平台包，最后查找 `PATH`。播放器也可用 `afplay`、`ffplay` 或 `mplayer`。合成时，待朗读文本会发送到在线语音服务。
 
 ## 常用命令
 
@@ -33,4 +33,12 @@ rustup target add aarch64-apple-darwin x86_64-pc-windows-gnu
 ./scripts/build-audio-tools.sh /path/to/edge-tts-rust
 ```
 
-两种工具的产物分别在 `dist/audio-tools/darwin-arm64/` 和 `dist/audio-tools/win32-x64/`。发布前先构建，再用 `npm pack --dry-run` 确认四个文件都在包里。
+构建产物位于 `pkgs/pi-friday-{darwin-arm64,win32-x64}/`。两个目录各是一个 npm 包，只发布本平台的两种工具。发布前用 `npm pack --dry-run ./pkgs/pi-friday-<平台>` 检查产物，并确保主包与平台包版本一致。
+
+先发布平台包，再发布主包：
+
+```sh
+npm publish ./pkgs/pi-friday-darwin-arm64
+npm publish ./pkgs/pi-friday-win32-x64
+npm publish
+```

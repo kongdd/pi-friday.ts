@@ -1,10 +1,12 @@
 import { constants } from "node:fs";
 import { access, stat } from "node:fs/promises";
-import { resolve } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const BUNDLED_TOOLS = fileURLToPath(new URL("../dist/audio-tools/", import.meta.url));
+const LOCAL_TOOLS = fileURLToPath(new URL("../pkgs/", import.meta.url));
 const TARGETS = ["darwin-arm64", "win32-x64"];
+const require = createRequire(import.meta.url);
 
 export type ToolName = "audio-play" | "edge-tts-rust" | "afplay" | "ffplay" | "mplayer";
 
@@ -31,11 +33,19 @@ const pathDirs = (path: string, platform: NodeJS.Platform) =>
     .map((dir) => platform === "win32" ? dir.replace(/^"(.*)"$/, "$1") : dir)
     .filter(Boolean);
 
-async function findBundledTool(fileName: string, platform: NodeJS.Platform, arch: NodeJS.Architecture, toolsDir: string) {
-  const target = `${platform}-${arch}`;
-  if (!TARGETS.includes(target)) return;
-  const file = resolve(toolsDir, target, fileName);
+async function findLocalTool(fileName: string, platform: NodeJS.Platform, toolsDir: string, packageName: string) {
+  const file = resolve(toolsDir, packageName, fileName);
   if (await isExecutable(file, platform)) return file;
+}
+
+async function findPlatformTool(fileName: string, platform: NodeJS.Platform, packageName: string) {
+  try {
+    const manifest = require.resolve(`${packageName}/package.json`);
+    const file = resolve(dirname(manifest), fileName);
+    if (await isExecutable(file, platform)) return file;
+  } catch {
+    // 平台包是可选依赖，未安装时继续查 PATH。
+  }
 }
 
 async function findToolOnPATH(fileName: string, platform: NodeJS.Platform, path: string) {
@@ -46,12 +56,18 @@ async function findToolOnPATH(fileName: string, platform: NodeJS.Platform, path:
   }
 }
 
-// find exe：先找包内 toolsDir/<platform>-<arch>，再找环境变量 PATH 中的同名程序。
+// 查找顺序：本地 pkgs → npm 平台包 → 环境变量 PATH。
 export async function findTool(
   name: ToolName,
-  { platform = process.platform, arch = process.arch, toolsDir = BUNDLED_TOOLS, path = process.env.PATH ?? "" }: AudioToolLocation = {},
+  { platform = process.platform, arch = process.arch, toolsDir = LOCAL_TOOLS, path = process.env.PATH ?? "" }: AudioToolLocation = {},
 ): Promise<string | undefined> {
   const fileName = platform === "win32" ? `${name}.exe` : name;
-  return (await findBundledTool(fileName, platform, arch, toolsDir))
-    ?? findToolOnPATH(fileName, platform, path);
+  const target = `${platform}-${arch}`;
+  if (TARGETS.includes(target)) {
+    const packageName = `pi-friday-${target}`;
+    const file = (await findLocalTool(fileName, platform, toolsDir, packageName))
+      ?? (await findPlatformTool(fileName, platform, packageName));
+    if (file) return file;
+  }
+  return findToolOnPATH(fileName, platform, path);
 }

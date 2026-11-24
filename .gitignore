@@ -1,1 +1,3 @@
 /dist/
+/pkgs/*/*
+!/pkgs/*/package.json

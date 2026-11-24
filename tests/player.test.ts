@@ -30,10 +30,10 @@ test.each([
 test.each([
   ["darwin", "arm64", ""],
   ["win32", "x64", ".exe"],
-] as const)("uses bundled tools on %s-%s", async (platform, arch, suffix) => {
+] as const)("uses local platform packages on %s-%s", async (platform, arch, suffix) => {
   const toolsDir = await mkdtemp(join(tmpdir(), "friday-tools-"));
   try {
-    const bin = join(toolsDir, `${platform}-${arch}`);
+    const bin = join(toolsDir, `pi-friday-${platform}-${arch}`);
     await mkdir(bin);
     const player = join(bin, `audio-play${suffix}`);
     const tts = join(bin, `edge-tts-rust${suffix}`);
