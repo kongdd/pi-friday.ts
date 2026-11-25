@@ -6,8 +6,7 @@
   "keywords": ["pi-package"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kongdd/pi-friday.ts",
-    "directory": "extensions/Friday"
+    "url": "git+https://github.com/kongdd/pi-friday.ts.git"
   },
   "files": ["src"],
   "optionalDependencies": {

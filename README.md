@@ -35,10 +35,15 @@ rustup target add aarch64-apple-darwin x86_64-pc-windows-gnu
 
 构建产物位于 `pkgs/pi-friday-mac/` 和 `pkgs/pi-friday-windows/`，分别对应同名 npm 包，只发布本平台的两种工具。发布前用 `npm pack --dry-run ./pkgs/pi-friday-<平台>` 检查产物，并确认主包 `optionalDependencies` 指向已发布的平台包版本。
 
-平台包有更新时，先发布平台包，再发布主包：
+平台包有更新时，先手动发布对应的子包，再更新主包的依赖版本：
 
 ```sh
 npm publish ./pkgs/pi-friday-mac
 npm publish ./pkgs/pi-friday-windows
-npm publish
 ```
+
+## 发布主包
+
+首次使用前，在 npm 的 `pi-friday` 设置中添加 [Trusted Publisher](https://docs.npmjs.com/trusted-publishers/)，选择 GitHub Actions，填写所有者 `kongdd`、仓库 `pi-friday.ts`、工作流 `release.yml`，环境留空，并允许 `npm publish`。无需配置 npm token。
+
+推送版本更新后，在 GitHub 发布正式 Release，标签须与主包版本一致（如 `v0.1.2`）。工作流会运行测试并将主包发布到 npm；草稿、预发布和仅推送标签不会触发 npm 发布。
