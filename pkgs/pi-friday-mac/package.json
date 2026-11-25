@@ -1,0 +1,13 @@
+{
+  "name": "pi-friday-mac",
+  "version": "0.1.1",
+  "description": "macOS Apple Silicon audio playback and text-to-speech binaries for pi-friday.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kongdd/pi-friday.ts.git",
+    "directory": "pkgs/pi-friday-mac"
+  },
+  "os": ["darwin"],
+  "cpu": ["arm64"],
+  "files": ["audio-play", "edge-tts-rust", "LICENSE-edge-tts-rust"]
+}

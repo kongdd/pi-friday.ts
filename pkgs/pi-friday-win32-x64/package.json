@@ -1,7 +1,0 @@
-{
-  "name": "pi-friday-win32-x64",
-  "version": "0.1.1",
-  "os": ["win32"],
-  "cpu": ["x64"],
-  "files": ["audio-play.exe", "edge-tts-rust.exe"]
-}

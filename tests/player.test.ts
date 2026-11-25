@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findPlayer, playerArgs } from "../src/audio-player";
@@ -28,12 +28,12 @@ test.each([
 });
 
 test.each([
-  ["darwin", "arm64", ""],
-  ["win32", "x64", ".exe"],
-] as const)("uses local platform packages on %s-%s", async (platform, arch, suffix) => {
+  ["darwin", "arm64", "pi-friday-mac", ""],
+  ["win32", "x64", "pi-friday-windows", ".exe"],
+] as const)("uses local platform packages on %s-%s", async (platform, arch, packageName, suffix) => {
   const toolsDir = await mkdtemp(join(tmpdir(), "friday-tools-"));
   try {
-    const bin = join(toolsDir, `pi-friday-${platform}-${arch}`);
+    const bin = join(toolsDir, packageName);
     await mkdir(bin);
     const player = join(bin, `audio-play${suffix}`);
     const tts = join(bin, `edge-tts-rust${suffix}`);
@@ -49,6 +49,29 @@ test.each([
     expect(await findTool("edge-tts-rust", { ...location, arch: "ia32", path: bin })).toBe(tts);
   } finally {
     await rm(toolsDir, { recursive: true, force: true });
+  }
+});
+
+test.each([
+  ["darwin", "arm64", "pi-friday-mac", "audio-play"],
+  ["win32", "x64", "pi-friday-windows", "audio-play.exe"],
+] as const)("finds %s-%s tools in the %s npm package", async (platform, arch, packageName, fileName) => {
+  const root = await mkdtemp(join(tmpdir(), "friday-npm-tools-"));
+  try {
+    const bin = join(root, "node_modules", packageName);
+    const player = join(bin, fileName);
+    const module = join(root, "audio-tools.ts");
+    await mkdir(bin, { recursive: true });
+    await writeFile(join(bin, "package.json"), JSON.stringify({ name: packageName }));
+    await writeFile(player, "", { mode: 0o755 });
+    await copyFile(new URL("../src/audio-tools.ts", import.meta.url), module);
+
+    const { findTool } = await import(module);
+    const location = { platform, arch, toolsDir: root, path: "" };
+    const found = await findTool("audio-play", location);
+    expect(found && await realpath(found)).toBe(await realpath(player));
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 

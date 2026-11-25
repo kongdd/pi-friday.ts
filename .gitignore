@@ -1,3 +1,5 @@
 /dist/
 /pkgs/*/*
 !/pkgs/*/package.json
+!/pkgs/*/README.md
+!/pkgs/*/LICENSE*

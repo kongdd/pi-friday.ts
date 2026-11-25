@@ -5,7 +5,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const LOCAL_TOOLS = fileURLToPath(new URL("../pkgs/", import.meta.url));
-const TARGETS = ["darwin-arm64", "win32-x64"];
+const PLATFORM_PACKAGES: Partial<Record<string, string>> = {
+  "darwin-arm64": "pi-friday-mac",
+  "win32-x64": "pi-friday-windows",
+};
 const require = createRequire(import.meta.url);
 
 export type ToolName = "audio-play" | "edge-tts-rust" | "afplay" | "ffplay" | "mplayer";
@@ -63,8 +66,8 @@ export async function findTool(
 ): Promise<string | undefined> {
   const fileName = platform === "win32" ? `${name}.exe` : name;
   const target = `${platform}-${arch}`;
-  if (TARGETS.includes(target)) {
-    const packageName = `pi-friday-${target}`;
+  const packageName = PLATFORM_PACKAGES[target];
+  if (packageName) {
     const file = (await findLocalTool(fileName, platform, toolsDir, packageName))
       ?? (await findPlatformTool(fileName, platform, packageName));
     if (file) return file;

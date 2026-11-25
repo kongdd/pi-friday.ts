@@ -33,12 +33,12 @@ rustup target add aarch64-apple-darwin x86_64-pc-windows-gnu
 ./scripts/build-audio-tools.sh /path/to/edge-tts-rust
 ```
 
-构建产物位于 `pkgs/pi-friday-{darwin-arm64,win32-x64}/`。两个目录各是一个 npm 包，只发布本平台的两种工具。发布前用 `npm pack --dry-run ./pkgs/pi-friday-<平台>` 检查产物，并确保主包与平台包版本一致。
+构建产物位于 `pkgs/pi-friday-mac/` 和 `pkgs/pi-friday-windows/`，分别对应同名 npm 包，只发布本平台的两种工具。发布前用 `npm pack --dry-run ./pkgs/pi-friday-<平台>` 检查产物，并确认主包 `optionalDependencies` 指向已发布的平台包版本。
 
-先发布平台包，再发布主包：
+平台包有更新时，先发布平台包，再发布主包：
 
 ```sh
-npm publish ./pkgs/pi-friday-darwin-arm64
-npm publish ./pkgs/pi-friday-win32-x64
+npm publish ./pkgs/pi-friday-mac
+npm publish ./pkgs/pi-friday-windows
 npm publish
 ```

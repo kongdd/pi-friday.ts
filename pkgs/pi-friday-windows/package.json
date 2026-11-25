@@ -1,0 +1,13 @@
+{
+  "name": "pi-friday-windows",
+  "version": "0.1.1",
+  "description": "Windows x64 audio playback and text-to-speech binaries for pi-friday.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kongdd/pi-friday.ts.git",
+    "directory": "pkgs/pi-friday-windows"
+  },
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "files": ["audio-play.exe", "edge-tts-rust.exe", "LICENSE-edge-tts-rust"]
+}

@@ -1,7 +1,0 @@
-{
-  "name": "pi-friday-darwin-arm64",
-  "version": "0.1.1",
-  "os": ["darwin"],
-  "cpu": ["arm64"],
-  "files": ["audio-play", "edge-tts-rust"]
-}
